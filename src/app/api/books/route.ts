@@ -1,50 +1,47 @@
-// src/app/api/books/route.ts
 import { NextResponse } from 'next/server';
-import { books } from '../../data/books';
+import dbConnect from '@/lib/dbConnect';
+import BookModel from '@/app/models/Books';
 
-// GET /api/books - Return all books
-export async function GET() {
+// Define the number of items per page for initial setup
+const ITEMS_PER_PAGE = 10;
+
+/**
+ * Handles GET requests to /api/books
+ * Fetches a list of books from MongoDB with optional pagination.
+ */
+export async function GET(request: Request) {
   try {
-    return NextResponse.json(books);
-  } catch (err) {
-    console.error('Error fetching books:', err);
+    // 1. Establish Mongoose Connection
+    await dbConnect();
+    
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const skip = (page - 1) * ITEMS_PER_PAGE;
+
+    // 2. Fetch Data using Mongoose Model
+    
+    // Total count for pagination metadata
+    const totalBooks = await BookModel.countDocuments({});
+
+    // Paginated and sorted results
+    const books = await BookModel.find({})
+      .sort({ title: 1 }) 
+      .skip(skip)
+      .limit(ITEMS_PER_PAGE)
+      .lean(); // Use .lean() for faster query results (returns plain JavaScript objects)
+
+    return NextResponse.json({
+      data: books,
+      totalCount: totalBooks,
+      totalPages: Math.ceil(totalBooks / ITEMS_PER_PAGE),
+      currentPage: page,
+    }, { status: 200 });
+
+  } catch (error) {
+    console.error('Mongoose GET Error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch books' },
+      { message: 'Error fetching books from the database.' },
       { status: 500 }
     );
   }
 }
-
-// Future implementation notes:
-// - Connect to a database (e.g., PostgreSQL, MongoDB)
-// - Add authentication middleware for admin operations
-// - Implement pagination for large datasets
-// - Add filtering and search query parameters
-// - Include proper error handling and logging
-// - Add rate limiting for API protection
-// - Implement caching strategies for better performance
-
-// Example future database integration:
-// import { db } from '@/lib/database';
-// 
-// export async function GET(request: Request) {
-//   const { searchParams } = new URL(request.url);
-//   const page = parseInt(searchParams.get('page') || '1');
-//   const limit = parseInt(searchParams.get('limit') || '10');
-//   const genre = searchParams.get('genre');
-//   
-//   try {
-//     const books = await db.books.findMany({
-//       where: genre ? { genre: { contains: genre } } : {},
-//       skip: (page - 1) * limit,
-//       take: limit,
-//     });
-//     
-//     return NextResponse.json(books);
-//   } catch (error) {
-//     return NextResponse.json(
-//       { error: 'Database connection failed' },
-//       { status: 500 }
-//     );
-//   }
-// }
