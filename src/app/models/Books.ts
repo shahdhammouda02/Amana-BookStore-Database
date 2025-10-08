@@ -1,8 +1,7 @@
 import mongoose, { Document, Schema, Model, models } from 'mongoose';
 
-// 1. Define the TypeScript Interface for type safety
+// 1. Define TypeScript interface
 export interface IBook extends Document {
-  _id: string;
   title: string;
   author: string;
   description: string;
@@ -21,9 +20,8 @@ export interface IBook extends Document {
   featured: boolean;
 }
 
-// 2. Define the Mongoose Schema
+// 2. Define Schema
 const BookSchema: Schema<IBook> = new Schema({
-  _id: { type: String, required: true },
   title: { type: String, required: true, trim: true },
   author: { type: String, required: true, trim: true },
   description: { type: String, required: true },
@@ -41,14 +39,12 @@ const BookSchema: Schema<IBook> = new Schema({
   inStock: { type: Boolean, default: true },
   featured: { type: Boolean, default: false },
 }, { 
-  // Disable Mongoose's default version key and automatic objectId generation
   _id: false, 
   versionKey: false,
-  timestamps: true // Adds createdAt and updatedAt fields automatically
+  timestamps: true
 });
 
-// 3. Create the Model
-// Use mongoose.models.Book to check if the model has already been defined
-const BookModel = (models.Book || mongoose.model<IBook>('Book', BookSchema));
+// 3. Create Model with explicit collection name 'books'
+const BookModel: Model<IBook> = models.Book || mongoose.model<IBook>('Book', BookSchema, 'books');
 
-export default BookModel as Model<IBook>;
+export default BookModel;
