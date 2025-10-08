@@ -23,9 +23,8 @@ export default function BookDetailPage() {
   if (!id) return;
 
   setIsLoading(true);
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  fetch(`${baseUrl}/api/books?id=${id}`)
+  fetch(`/api/books?id=${id}`)
     .then((res) => res.json())
     .then((data) => {
       if (!data.success || data.count === 0) {
