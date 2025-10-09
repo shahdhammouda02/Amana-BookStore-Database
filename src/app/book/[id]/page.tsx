@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-// import { books } from '../../data/books';
-// import { reviews } from '../../data/reviews';
+import { books } from '../../data/books';
+import { reviews } from '../../data/reviews';
 import { Book, CartItem, Review } from '../../types';
 
 export default function BookDetailPage() {
@@ -20,31 +20,19 @@ export default function BookDetailPage() {
   const { id } = params;
 
   useEffect(() => {
-  if (!id) return;
-
-  setIsLoading(true);
-
-  fetch(`/api/books?id=${id}`)
-    .then((res) => res.json())
-    .then((data) => {
-      if (!data.success || data.count === 0) {
+    if (id) {
+      const foundBook = books.find((b) => b.id === id);
+      if (foundBook) {
+        setBook(foundBook);
+        // Get reviews for this book
+        const bookReviewsData = reviews.filter((review) => review.bookId === id);
+        setBookReviews(bookReviewsData);
+      } else {
         setError('Book not found.');
-        setIsLoading(false);
-        return;
       }
-
-      const bookData = data.data[0];
-      setBook(bookData);
-      setBookReviews(bookData.reviews || []);
       setIsLoading(false);
-    })
-    .catch((err) => {
-      console.error(err);
-      setError('Failed to load book data.');
-      setIsLoading(false);
-    });
-}, [id]);
-
+    }
+  }, [id]);
 
   const handleAddToCart = () => {
     if (!book) return;
