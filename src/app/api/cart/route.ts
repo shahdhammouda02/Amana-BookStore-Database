@@ -1,106 +1,177 @@
 // src/app/api/cart/route.ts
 import { NextResponse } from 'next/server';
+import dbConnect from '@/lib/dbConnect';
+import BookModel from '@/app/models/Books';
+import CartModel from '@/app/models/Cart';
 
-// GET /api/cart - Get cart items
-export async function GET() {
-  // In a real application, this would fetch cart items from a database
-  // based on user session or authentication token
-  return NextResponse.json({ message: 'Cart API endpoint - GET method' });
+export async function GET(request: Request) {
+  try {
+    await dbConnect();
+    
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('sessionId') || 'default-session';
+
+    const cartItems = await CartModel.find({ sessionId })
+      .populate({
+        path: 'bookId',
+        model: BookModel
+      })
+      .exec();
+
+    console.log('Cart items found:', cartItems.length);
+    
+    // Debug: Check if books are populated
+    cartItems.forEach((item, index) => {
+      console.log(`Item ${index}:`, {
+        hasBookId: !!item.bookId,
+        bookData: item.bookId
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: cartItems,
+    });
+  } catch (err) {
+    console.error('Error fetching cart items:', err);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch cart items' },
+      { status: 500 }
+    );
+  }
 }
 
-// POST /api/cart - Add item to cart
 export async function POST(request: Request) {
   try {
+    await dbConnect();
+    
     const body = await request.json();
-    // In a real application, this would add an item to the user's cart in the database
-    return NextResponse.json({ 
+    const { bookId, quantity = 1, sessionId = 'default-session' } = body;
+
+    // Check if book exists
+    const book = await BookModel.findById(bookId);
+    if (!book) {
+      return NextResponse.json(
+        { success: false, error: 'Book not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if item already exists in cart
+    const existingCartItem = await CartModel.findOne({
+      sessionId,
+      bookId
+    });
+
+    let cartItem;
+    
+    if (existingCartItem) {
+      // Update quantity
+      existingCartItem.quantity += quantity;
+      cartItem = await existingCartItem.save();
+    } else {
+      // Create new cart item
+      cartItem = await CartModel.create({
+        sessionId,
+        bookId,
+        quantity,
+        addedAt: new Date()
+      });
+    }
+
+    await cartItem.populate('bookId');
+
+    return NextResponse.json({
+      success: true,
       message: 'Item added to cart successfully',
-      item: body 
+      data: cartItem
     });
   } catch (err) {
     console.error('Error adding item to cart:', err);
     return NextResponse.json(
-      { error: 'Failed to add item to cart' },
+      { success: false, error: 'Failed to add item to cart' },
       { status: 500 }
     );
   }
 }
 
-// PUT /api/cart - Update cart item
 export async function PUT(request: Request) {
   try {
+    await dbConnect();
+    
     const body = await request.json();
-    // In a real application, this would update an existing cart item
-    return NextResponse.json({ 
+    const { itemId, quantity, sessionId = 'default-session' } = body;
+
+    if (quantity < 1) {
+      return NextResponse.json(
+        { success: false, error: 'Quantity must be at least 1' },
+        { status: 400 }
+      );
+    }
+
+    const cartItem = await CartModel.findOneAndUpdate(
+      { _id: itemId, sessionId },
+      { quantity },
+      { new: true }
+    ).populate('bookId');
+
+    if (!cartItem) {
+      return NextResponse.json(
+        { success: false, error: 'Cart item not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
       message: 'Cart item updated successfully',
-      item: body 
+      data: cartItem
     });
   } catch (err) {
     console.error('Error updating cart item:', err);
     return NextResponse.json(
-      { error: 'Failed to update cart item' },
+      { success: false, error: 'Failed to update cart item' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/cart - Remove item from cart
 export async function DELETE(request: Request) {
   try {
+    await dbConnect();
+    
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('itemId');
-    
-    // In a real application, this would remove an item from the user's cart
-    return NextResponse.json({ 
-      message: 'Item removed from cart successfully',
-      itemId 
+    const sessionId = searchParams.get('sessionId') || 'default-session';
+
+    if (!itemId) {
+      return NextResponse.json(
+        { success: false, error: 'Cart item ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const cartItem = await CartModel.findOneAndDelete({
+      _id: itemId,
+      sessionId
+    });
+
+    if (!cartItem) {
+      return NextResponse.json(
+        { success: false, error: 'Cart item not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Item removed from cart successfully'
     });
   } catch (err) {
     console.error('Error removing cart item:', err);
     return NextResponse.json(
-      { error: 'Failed to remove item from cart' },
+      { success: false, error: 'Failed to remove item from cart' },
       { status: 500 }
     );
   }
 }
-
-// Future implementation notes:
-// - Session management for user carts (using NextAuth.js or similar)
-// - Database integration patterns (Prisma, Drizzle, or raw SQL)
-// - Cart persistence strategies:
-//   * Guest carts: Store in localStorage/cookies with optional merge on login
-//   * User carts: Store in database with user ID association
-//   * Hybrid approach: localStorage for guests, database for authenticated users
-// - Security considerations:
-//   * Validate user ownership of cart items
-//   * Sanitize input data
-//   * Rate limiting to prevent abuse
-// - Performance optimizations:
-//   * Cache frequently accessed cart data
-//   * Batch operations for multiple item updates
-//   * Implement optimistic updates on the frontend
-
-// Example future database integration:
-// import { db } from '@/lib/database';
-// import { getServerSession } from 'next-auth';
-// 
-// export async function GET() {
-//   const session = await getServerSession();
-//   if (!session?.user?.id) {
-//     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-//   }
-//   
-//   try {
-//     const cartItems = await db.cartItem.findMany({
-//       where: { userId: session.user.id },
-//       include: { book: true }
-//     });
-//     
-//     return NextResponse.json(cartItems);
-//   } catch (error) {
-//     return NextResponse.json(
-//       { error: 'Failed to fetch cart items' },
-//       { status: 500 }
-//     );
-//   }
-// }

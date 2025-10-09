@@ -18,7 +18,6 @@ const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   itemsPerPage,
   totalItems,
-  onItemsPerPageChange,
 }) => {
   // Calculate range of items being displayed
   const startItem = (currentPage - 1) * itemsPerPage + 1;

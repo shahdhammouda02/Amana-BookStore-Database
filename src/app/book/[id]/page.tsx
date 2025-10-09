@@ -4,13 +4,23 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { books } from '../../data/books';
-import { reviews } from '../../data/reviews';
-import { Book, CartItem, Review } from '../../types';
+import { Book, CartItem } from '../../types';
+
+interface DatabaseBook extends Book {
+  _id: string;
+  reviews?: Array<{
+    _id: string;
+    author: string;
+    rating: number;
+    title: string;
+    comment: string;
+    timestamp: string;
+    verified: boolean;
+  }>;
+}
 
 export default function BookDetailPage() {
-  const [book, setBook] = useState<Book | null>(null);
-  const [bookReviews, setBookReviews] = useState<Review[]>([]);
+  const [book, setBook] = useState<DatabaseBook | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,53 +30,83 @@ export default function BookDetailPage() {
   const { id } = params;
 
   useEffect(() => {
-    if (id) {
-      const foundBook = books.find((b) => b.id === id);
-      if (foundBook) {
-        setBook(foundBook);
-        // Get reviews for this book
-        const bookReviewsData = reviews.filter((review) => review.bookId === id);
-        setBookReviews(bookReviewsData);
-      } else {
-        setError('Book not found.');
+    const fetchBook = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/books?id=${id}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch book');
+        }
+
+        const result = await response.json();
+        
+        if (result.success && result.data.length > 0) {
+          setBook(result.data[0]);
+        } else {
+          setError('Book not found.');
+        }
+      } catch (err) {
+        console.error('Error fetching book:', err);
+        setError('Failed to load book details.');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
+    };
+
+    if (id) {
+      fetchBook();
     }
   }, [id]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!book) return;
 
-    const cartItem: CartItem = {
-      id: `${book.id}-${Date.now()}`,
-      bookId: book.id,
-      quantity: quantity,
-      addedAt: new Date().toISOString(),
-    };
+    try {
+      const response = await fetch('/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookId: book._id,
+          quantity: quantity,
+        }),
+      });
 
-    // Retrieve existing cart from localStorage
-    const storedCart = localStorage.getItem('cart');
-    const cart: CartItem[] = storedCart ? JSON.parse(storedCart) : [];
+      if (!response.ok) {
+        throw new Error('Failed to add to cart');
+      }
 
-    // Check if the book is already in the cart
-    const existingItemIndex = cart.findIndex((item) => item.bookId === book.id);
-
-    if (existingItemIndex > -1) {
-      // Update quantity if item already exists
-      cart[existingItemIndex].quantity += quantity;
-    } else {
-      // Add new item to cart
-      cart.push(cartItem);
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update localStorage for navbar counter
+        const storedCart = localStorage.getItem('cart');
+        const cart: CartItem[] = storedCart ? JSON.parse(storedCart) : [];
+        
+        const existingItemIndex = cart.findIndex((item) => item.bookId === book._id);
+        
+        if (existingItemIndex > -1) {
+          cart[existingItemIndex].quantity += quantity;
+        } else {
+          cart.push({
+            id: `${book._id}-${Date.now()}`,
+            bookId: book._id,
+            quantity: quantity,
+            addedAt: new Date().toISOString(),
+          });
+        }
+        
+        localStorage.setItem('cart', JSON.stringify(cart));
+        window.dispatchEvent(new CustomEvent('cartUpdated'));
+        
+        router.push('/cart');
+      }
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      alert('Failed to add item to cart. Please try again.');
     }
-
-    // Save updated cart to localStorage
-    localStorage.setItem('cart', JSON.stringify(cart));
-
-    // Dispatch a custom event to notify the Navbar
-    window.dispatchEvent(new CustomEvent('cartUpdated'));
-
-    // Redirect to the cart page after adding
-    router.push('/cart');
   };
   
   const renderStars = (rating: number) => {
@@ -76,14 +116,12 @@ export default function BookDetailPage() {
     
     for (let i = 1; i <= 5; i++) {
       if (i <= fullStars) {
-        // Full star
         stars.push(
           <svg key={i} className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
         );
       } else if (i === fullStars + 1 && hasHalfStar) {
-        // Half star
         stars.push(
           <div key={i} className="relative w-4 h-4">
             <svg className="w-4 h-4 text-gray-300 fill-current absolute" viewBox="0 0 20 20">
@@ -97,7 +135,6 @@ export default function BookDetailPage() {
           </div>
         );
       } else {
-        // Empty star
         stars.push(
           <svg key={i} className="w-4 h-4 text-gray-300 fill-current" viewBox="0 0 20 20">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -133,7 +170,7 @@ export default function BookDetailPage() {
   }
 
   if (!book) {
-    return null; // Should be handled by error state
+    return null;
   }
 
   return (
@@ -141,7 +178,6 @@ export default function BookDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Book Image */}
         <div className="relative h-96 md:h-[600px] w-full shadow-lg rounded-lg overflow-hidden bg-gray-200 flex items-center justify-center">
-          {/* Book Icon Placeholder */}
           <div className="text-8xl text-gray-400">📚</div>
         </div>
 
@@ -196,10 +232,10 @@ export default function BookDetailPage() {
       <div className="mt-12">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Customer Reviews</h2>
         
-        {bookReviews.length > 0 ? (
+        {book.reviews && book.reviews.length > 0 ? (
           <div className="space-y-6">
-            {bookReviews.map((review) => (
-              <div key={review.id} className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            {book.reviews.map((review) => (
+              <div key={review._id} className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center space-x-3">
                     <div className="flex items-center">

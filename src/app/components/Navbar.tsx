@@ -3,28 +3,46 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-
 import { useState, useEffect } from 'react';
-import { CartItem } from '../types';
+
+interface CartItemFromAPI {
+  _id: string;
+  bookId: {
+    _id: string;
+    title: string;
+    author: string;
+    price: number;
+  };
+  quantity: number;
+  addedAt: string;
+}
 
 const Navbar: React.FC = () => {
   const [cartItemCount, setCartItemCount] = useState(0);
   const pathname = usePathname();
 
   useEffect(() => {
-    // This function updates the cart count from localStorage.
-    // It's designed to run on the client side only.
-    const updateCartCount = () => {
-      const storedCart = localStorage.getItem('cart');
-      if (storedCart) {
-        try {
-          const cart: CartItem[] = JSON.parse(storedCart);
-          const count = cart.reduce((total, item) => total + item.quantity, 0);
-          setCartItemCount(count);
-        } catch (error) {
-          console.error('Failed to parse cart from localStorage', error);
-          setCartItemCount(0);
+    const updateCartCount = async () => {
+      try {
+        // Try to get count from database first
+        const response = await fetch('/api/cart');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            const totalItems = result.data.reduce((total: number, item: CartItemFromAPI) => total + item.quantity, 0);
+            setCartItemCount(totalItems);
+            localStorage.setItem('cartCount', totalItems.toString());
+            return;
+          }
         }
+      } catch (error) {
+        console.error('Failed to fetch cart count from API', error);
+      }
+
+      // Fallback to localStorage
+      const storedCount = localStorage.getItem('cartCount');
+      if (storedCount) {
+        setCartItemCount(parseInt(storedCount, 10));
       } else {
         setCartItemCount(0);
       }

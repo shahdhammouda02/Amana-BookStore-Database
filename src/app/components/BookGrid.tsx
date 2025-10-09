@@ -1,18 +1,24 @@
 // src/app/components/BookGrid.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Book } from '../types';
 import BookCard from './BookCard';
 import BookListItem from './BookListItem';
 import Pagination from './Pagination';
 
 interface BookGridProps {
-  books: Book[];
+  books?: Book[]; // Make books optional
   onAddToCart?: (bookId: string) => void;
 }
 
-const BookGrid: React.FC<BookGridProps> = ({ books, onAddToCart }) => {
+interface ApiBook extends Book {
+  _id: string;
+}
+
+const BookGrid: React.FC<BookGridProps> = ({ books: propBooks, onAddToCart }) => {
+  const [books, setBooks] = useState<ApiBook[]>([]);
+  const [isLoading, setIsLoading] = useState(!propBooks); // Only load if no prop books
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('All');
   const [sortBy, setSortBy] = useState('title');
@@ -21,6 +27,40 @@ const BookGrid: React.FC<BookGridProps> = ({ books, onAddToCart }) => {
   const [itemsPerPage, setItemsPerPage] = useState(8);
   const [featuredCarouselIndex, setFeaturedCarouselIndex] = useState(0);
 
+  // Fetch books from database on component mount ONLY if no books are passed as props
+  useEffect(() => {
+    const fetchBooks = async () => {
+      // If books are passed as props, use them instead of fetching
+      if (propBooks && propBooks.length > 0) {
+        setBooks(propBooks as ApiBook[]);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/books');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch books');
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+          setBooks(result.data);
+        }
+      } catch (error) {
+        console.error('Error fetching books:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBooks();
+  }, [propBooks]); // Add propBooks to dependency array
+
+  // ... rest of your component remains the same
   // Memoize featured books to prevent re-calculation on every render
   const featuredBooks = useMemo(() => books.filter(book => book.featured), [books]);
 
@@ -124,11 +164,16 @@ const BookGrid: React.FC<BookGridProps> = ({ books, onAddToCart }) => {
     setCurrentPage(page);
   };
 
-  // Handle items per page change
-  const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1);
-  };
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading books from database...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -181,16 +226,24 @@ const BookGrid: React.FC<BookGridProps> = ({ books, onAddToCart }) => {
         
         {/* Featured Books Carousel */}
         <div className="relative">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {currentFeaturedBooks.map(book => (
-              <BookCard key={book.id} book={book} onAddToCart={onAddToCart} />
-            ))}
-          </div>
-          
-          {/* Show current page info */}
-          {totalFeaturedPages > 1 && (
-            <div className="text-center mt-4 text-sm text-gray-600">
-              Showing {featuredCarouselIndex * booksPerPage + 1} - {Math.min((featuredCarouselIndex + 1) * booksPerPage, featuredBooks.length)} of {featuredBooks.length} featured books
+          {currentFeaturedBooks.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                {currentFeaturedBooks.map(book => (
+                  <BookCard key={book._id} book={book} onAddToCart={onAddToCart} />
+                ))}
+              </div>
+              
+              {/* Show current page info */}
+              {totalFeaturedPages > 1 && (
+                <div className="text-center mt-4 text-sm text-gray-600">
+                  Showing {featuredCarouselIndex * booksPerPage + 1} - {Math.min((featuredCarouselIndex + 1) * booksPerPage, featuredBooks.length)} of {featuredBooks.length} featured books
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-600">No featured books found</p>
             </div>
           )}
         </div>
@@ -285,7 +338,7 @@ const BookGrid: React.FC<BookGridProps> = ({ books, onAddToCart }) => {
           <>
             <div className="space-y-3">
               {paginatedBooks.map(book => (
-                <BookListItem key={book.id} book={book} onAddToCart={onAddToCart} />
+                <BookListItem key={book._id} book={book} onAddToCart={onAddToCart} />
               ))}
             </div>
             

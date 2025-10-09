@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Book } from '../types';
 
 interface BookListItemProps {
-  book: Book;
+  book: Book & { _id: string };
   onAddToCart?: (bookId: string) => void;
 }
 
@@ -54,7 +54,7 @@ const BookListItem: React.FC<BookListItemProps> = ({ book, onAddToCart }) => {
     return <div className="flex items-center">{stars}</div>;
   };
 
-  // Handle add to cart
+   // Handle add to cart
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -83,7 +83,7 @@ const BookListItem: React.FC<BookListItemProps> = ({ book, onAddToCart }) => {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center p-4 gap-4">
         {/* Book Cover/Icon - Left Side */}
-        <Link href={`/book/${book.id}`} className="flex-shrink-0 cursor-pointer">
+        <Link href={`/book/${book._id}`} className="flex-shrink-0 cursor-pointer">
           <div className="w-16 h-20 bg-gray-200 rounded-md flex items-center justify-center hover:bg-gray-300 transition-colors duration-200">
             <div className="text-2xl text-gray-400">📚</div>
           </div>
@@ -94,7 +94,7 @@ const BookListItem: React.FC<BookListItemProps> = ({ book, onAddToCart }) => {
           <div className="flex items-start justify-between gap-4">
             {/* Main Info */}
             <div className="flex-1 min-w-0">
-              <Link href={`/book/${book.id}`} className="block group cursor-pointer">
+              <Link href={`/book/${book._id}`} className="block group cursor-pointer">
                 <h3 className="text-lg font-semibold text-gray-800 truncate group-hover:text-blue-600 transition-colors duration-200">
                   {book.title}
                 </h3>
@@ -147,7 +147,7 @@ const BookListItem: React.FC<BookListItemProps> = ({ book, onAddToCart }) => {
 
               {/* Action Buttons */}
               <div className="flex flex-col gap-2 min-w-[120px]">
-                <Link href={`/book/${book.id}`} className="cursor-pointer">
+                <Link href={`/book/${book._id}`} className="cursor-pointer">
                   <button className="w-full px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors duration-200 cursor-pointer">
                     View Details
                   </button>
