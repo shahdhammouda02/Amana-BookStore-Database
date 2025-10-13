@@ -39,7 +39,6 @@ const BookSchema: Schema<IBook> = new Schema({
   inStock: { type: Boolean, default: true },
   featured: { type: Boolean, default: false },
 }, { 
-  _id: false, 
   versionKey: false,
   timestamps: true
 });

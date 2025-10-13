@@ -3,6 +3,14 @@ import dbConnect from "@/lib/dbConnect";
 import BookModel, { IBook } from "@/app/models/Books";
 import { FilterQuery } from "mongoose";
 
+
+interface MongooseError extends Error {
+    code?: number;
+    errors?: Record<string, { message: string }>;
+    message: string;
+    name: string;
+}
+
 export async function GET(request: Request) {
   try {
     // Connect to MongoDB
@@ -61,4 +69,49 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+}
+
+
+export async function POST(request: Request) {
+    await dbConnect();
+
+    try {
+        const body = await request.json();
+        const newBook = await BookModel.create(body); 
+
+        return NextResponse.json({
+            success: true,
+            message: "Book successfully added.",
+            data: newBook,
+        }, { status: 201 });
+
+    } catch (error: unknown) { // Use 'unknown' to satisfy the linter
+        console.error("Error creating book:", error);
+
+        // Assert 'error' as MongooseError for specific property checks
+        const dbError = error as MongooseError; 
+        
+        let message = "Failed to add book";
+        let status = 500;
+        const details = dbError.message || "An unexpected error occurred";
+
+        if (dbError.code === 11000) {
+            // MongoDB duplicate key error (e.g., ISBN unique constraint)
+            message = "ISBN must be unique.";
+            status = 400; // Bad Request
+        } else if (dbError.name === 'ValidationError') {
+            // Mongoose validation error (missing required fields, min/max failed)
+            const errorMessages = Object.values(dbError.errors || {})
+                .map(err => err.message)
+                .join(', ');
+            message = `Validation failed: ${errorMessages}`;
+            status = 400;
+        }
+
+        return NextResponse.json({ 
+            success: false, 
+            error: message,
+            details: details 
+        }, { status });
+    }
 }
