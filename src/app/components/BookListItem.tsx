@@ -67,7 +67,7 @@ const BookListItem: React.FC<BookListItemProps> = ({ book, onAddToCart }) => {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       if (onAddToCart) {
-        onAddToCart(book.id);
+        onAddToCart(book._id);
       }
       
       setShowSuccess(true);

@@ -63,7 +63,8 @@ export async function POST(request: Request) {
             );
         }
 
-        const book = await BookModel.findById(bookId) as (IBook & { inStock: boolean }) | null;
+        const book = await BookModel.findOne({ objectId: bookId });
+
         if (!book || !book.inStock) { // Check if book exists AND is in stock
             return NextResponse.json(
                 { success: false, error: 'Book not found or currently out of stock' },

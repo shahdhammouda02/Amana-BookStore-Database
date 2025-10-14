@@ -18,6 +18,7 @@ export interface IBook extends Document {
   reviewCount: number;
   inStock: boolean;
   featured: boolean;
+  objectId: mongoose.Types.ObjectId;
 }
 
 // 2. Define Schema
@@ -38,6 +39,10 @@ const BookSchema: Schema<IBook> = new Schema({
   reviewCount: { type: Number, default: 0, min: 0 },
   inStock: { type: Boolean, default: true },
   featured: { type: Boolean, default: false },
+  objectId: {
+    type: Schema.Types.ObjectId,
+    default: function () { return new mongoose.Types.ObjectId(); } // ← توليد تلقائي
+  }
 }, { 
   versionKey: false,
   timestamps: true
