@@ -13,47 +13,42 @@ interface MongooseError extends Error {
 
 export async function GET(request: Request) {
   try {
-    // Connect to MongoDB
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "10", 10);
     const genre = searchParams.get("genre");
-    const id = searchParams.get("id");
-
-    // Type-safe query
-    const query: FilterQuery<IBook> = {};
-    if (genre) query.genre = { $in: [new RegExp(genre, "i")] }; // case-insensitive
-    if (id) query._id = id;
+    // const id = searchParams.get("id"); // ⬅️ REMOVED ID PARAMETER
 
     const skip = (page - 1) * limit;
 
-    const [books, total] = await Promise.all([
-      BookModel.find(query).skip(skip).limit(limit),
-      BookModel.countDocuments(query),
-    ]);
+    // Type-safe query - now only handles genre filtering
+    const query: FilterQuery<IBook> = {};
+    if (genre) query.genre = { $in: [new RegExp(genre, "i")] }; // case-insensitive
+    // if (id) query._id = id; // ⬅️ REMOVED ID CONDITION
 
-    console.log(await BookModel.countDocuments());
-
-    // Fetch reviews for each book
-     const booksWithReviews = await BookModel.aggregate([
+    // Use aggregation for fetching books with embedded reviews for the list
+    const booksWithReviews = await BookModel.aggregate([
       { $match: query },
       { $skip: skip },
       { $limit: limit },
       {
         $lookup: {
-          from: 'reviews',       // the collection name in MongoDB
-          localField: '_id',     // field from books
+          from: 'reviews',      // the collection name in MongoDB
+          localField: '_id',    // field from books
           foreignField: 'bookId',// field from reviews
-          as: 'reviews'          // name of the array to return
+          as: 'reviews'         // name of the array to return
         }
       }
     ]);
     
+    // Count total documents for pagination based on the query
+    const total = await BookModel.countDocuments(query); // ⬅️ Replaced Promise.all
+
     return NextResponse.json({
       success: true,
-      count: books.length,
+      count: booksWithReviews.length,
       data: booksWithReviews,
       pagination: {
         page,

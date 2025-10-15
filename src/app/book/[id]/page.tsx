@@ -27,13 +27,14 @@ export default function BookDetailPage() {
 
   const params = useParams();
   const router = useRouter();
-  const { id } = params;
+    const id = Array.isArray(params.id) ? params.id[0] : params.id; 
+
 
   useEffect(() => {
     const fetchBook = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/books?id=${id}`);
+        const response = await fetch(`/api/books/${id}`);
         
         if (!response.ok) {
           throw new Error('Failed to fetch book');
@@ -41,9 +42,9 @@ export default function BookDetailPage() {
 
         const result = await response.json();
         
-        if (result.success && result.data.length > 0) {
-          setBook(result.data[0]);
-        } else {
+       if (result.success && result.data) {
+          setBook(result.data); // Set the single book object directly
+        }  else {
           setError('Book not found.');
         }
       } catch (err) {
