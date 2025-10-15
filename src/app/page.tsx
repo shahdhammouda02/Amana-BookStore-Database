@@ -4,10 +4,11 @@
 import BookGrid from './components/BookGrid';
 
 export default function HomePage() {
-  // Simple cart handler for demo purposes
+  // Enhanced cart handler that works with the API
   const handleAddToCart = (bookId: string) => {
     console.log(`Added book ${bookId} to cart`);
-    // Here you would typically dispatch to a cart state or call an API
+    // The actual API call is now handled in the BookCard component
+    // This callback is kept for backward compatibility
   };
 
   return (

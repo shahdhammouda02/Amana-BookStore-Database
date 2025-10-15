@@ -64,14 +64,38 @@ const BookListItem: React.FC<BookListItemProps> = ({ book, onAddToCart }) => {
     setIsAddingToCart(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Call the API to add to cart
+      const response = await fetch('/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookId: book._id,
+          quantity: 1
+        }),
+      });
+
+      const result = await response.json();
       
-      if (onAddToCart) {
-        onAddToCart(book._id);
+      if (result.success) {
+        // Update localStorage count
+        const currentCount = parseInt(localStorage.getItem('cartCount') || '0', 10);
+        const newCount = currentCount + 1;
+        localStorage.setItem('cartCount', newCount.toString());
+        
+        // Trigger custom event to update Navbar
+        window.dispatchEvent(new Event('cartUpdated'));
+        
+        if (onAddToCart) {
+          onAddToCart(book._id);
+        }
+        
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 2000);
+      } else {
+        console.error('Failed to add to cart:', result.message);
       }
-      
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
     } catch (error) {
       console.error('Error adding to cart:', error);
     } finally {

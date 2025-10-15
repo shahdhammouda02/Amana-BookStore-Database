@@ -52,11 +52,15 @@ const Navbar: React.FC = () => {
     updateCartCount();
 
     // Listen for custom event to update cart count
-    window.addEventListener('cartUpdated', updateCartCount);
+    const handleCartUpdate = () => {
+      updateCartCount();
+    };
+
+    window.addEventListener('cartUpdated', handleCartUpdate);
 
     // Clean up the event listener
     return () => {
-      window.removeEventListener('cartUpdated', updateCartCount);
+      window.removeEventListener('cartUpdated', handleCartUpdate);
     };
   }, []);
   
